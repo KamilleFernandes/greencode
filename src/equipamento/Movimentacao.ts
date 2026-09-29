@@ -1,3 +1,4 @@
+// src/equipamento/Movimentacao.ts
 export class Movimentacao {
   id: string;
   equipamentoId: string;

@@ -3,8 +3,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { CriptografiaArquivo } from "../persistencia/CriptografiaArquivo";
 import { RepositorioArquivo } from "../persistencia/RepositorioArquivo";
-import { carregarEquipamentos, salvarEquipamentos } from "../dominio/Equipamento";
-import { carregarLotes, salvarLotes } from "../dominio/Lote";
+import { carregarEquipamentos, salvarEquipamentos } from "../equipamento/Equipamento";
+import { carregarLotes, salvarLotes } from "../lote/Lote";
 
 const ARQUIVO_ATUAL = "journal.log";
 const LIMITE_BYTES = 10 * 1024 * 1024;

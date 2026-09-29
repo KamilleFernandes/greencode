@@ -9,6 +9,20 @@ export class Credencial implements Autenticavel {
   ultimoAcesso: Date;
   papel: PapelUsuario;
 
+  constructor(
+  usuario: string = "",
+  hashSenha: string = "",
+  salt: string = "",
+  ultimoAcesso: Date = new Date(),
+  papel: PapelUsuario = PapelUsuario.OPERADOR_CADASTRO
+) {
+  this.usuario = usuario;
+  this.hashSenha = hashSenha;
+  this.salt = salt;
+  this.ultimoAcesso = ultimoAcesso;
+  this.papel = papel;
+}
+
   verificarSenha(senhaPlana: string): boolean {
     const calculado = crypto.createHash("sha256").update(senhaPlana + this.salt).digest();
     const armazenado = Buffer.from(this.hashSenha, "hex");
