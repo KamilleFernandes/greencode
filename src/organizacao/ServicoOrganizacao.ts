@@ -28,13 +28,31 @@ export class ServicoOrganizacao {
     const existentes = this.listarTodas();
     if (existentes.some((o) => o.cnpj === cnpj)) throw new Error("CNPJ já cadastrado.");
 
-    const organizacao = this.reidratar({
-      ...dados,
-      id: this.gerarProximoId(existentes),
+    const organizacao = new Organizacao(
+      this.gerarProximoId(existentes),
+      String(dados.razaoSocial).trim(),
       cnpj,
-      dataCadastro: new Date(),
-      ativo: true,
-    });
+      String(dados.inscricaoEstadual).trim(),
+      String(dados.enderecoCompleto).trim(),
+      String(dados.telefone).trim(),
+      String(dados.email).trim()
+    );
+
+    if (dados.contrato) {
+      const c = dados.contrato;
+      if (!c.dataVencimento || c.valorMensal === undefined) {
+        throw new Error("Contrato inicial exige dataVencimento e valorMensal.");
+      }
+      organizacao.contratoVigente = new Contrato(
+        `${organizacao.id}-C1`,
+        organizacao.id,
+        new Date(),
+        new Date(c.dataVencimento),
+        c.clausulas ?? [],
+        Number(c.valorMensal),
+        !!c.renovacaoAutomatica
+      );
+    }
 
     new JournalTransacao("CADASTRAR", "Organizacao", null, organizacao).registrar(); // antes de gravar
     this.salvarTodas([...existentes, organizacao]);
@@ -70,15 +88,7 @@ export class ServicoOrganizacao {
   }
 
   private reidratar(obj: any): Organizacao {
-    const org = Object.assign(new Organizacao(), obj);
-    org.dataCadastro = new Date(obj.dataCadastro);
-    if (obj.contratoVigente) {
-      const c = Object.assign(new Contrato(), obj.contratoVigente);
-      c.dataAssinatura = new Date(c.dataAssinatura);
-      c.dataVencimento = new Date(c.dataVencimento);
-      org.contratoVigente = c;
-    }
-    return org;
+    return Organizacao.fromJSON(obj);
   }
 
   private gerarProximoId(existentes: Organizacao[]): string {

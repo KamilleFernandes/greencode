@@ -92,7 +92,7 @@ export class JournalTransacao {
         aplicar = () => salvarLotes(cfg.repositorio, substituir(carregarLotes(cfg.repositorio)));
         break;
       default:
-        return false; // Credencial/Sessao não são revertidas
+        return false;
     }
 
     new JournalTransacao("REVERTER", this.entidade, this.dadosDepois, this.dadosAntes).registrar();
@@ -139,7 +139,7 @@ export class JournalTransacao {
     JournalTransacao.aplicarRetencao(dir);
   }
 
-  // só apaga arquivos rotacionados cuja última escrita tem mais de 180 dias
+
   private static aplicarRetencao(dir: string): void {
     const limite = Date.now() - RETENCAO_MS;
     for (const f of fs.readdirSync(dir)) {

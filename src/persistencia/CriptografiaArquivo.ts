@@ -12,7 +12,7 @@ export class CriptografiaArquivo {
   cifrar(dados: string, chave: string): string {
     const chaveBuffer = Buffer.from(chave, "hex");
     const iv = crypto.randomBytes(TAMANHO_IV);
-    const cipher = crypto.createCipheriv(ALGORITMO, chaveBuffer, iv, authTagLength: 16 );
+    const cipher = crypto.createCipheriv(ALGORITMO, chaveBuffer, iv, { authTagLength: 16 });
 
     const cifrado = Buffer.concat([cipher.update(dados, "utf8"), cipher.final()]);
     const authTag = cipher.getAuthTag();
@@ -26,7 +26,7 @@ export class CriptografiaArquivo {
     const iv = Buffer.from(ivHex, "hex");
     const authTag = Buffer.from(authTagHex, "hex");
 
-    const decipher = crypto.createDecipheriv(ALGORITMO, chaveBuffer, iv, authTagLength: 16 );
+    const decipher = crypto.createDecipheriv(ALGORITMO, chaveBuffer, iv, { authTagLength: 16 });
     decipher.setAuthTag(authTag);
 
     const decifrado = Buffer.concat([

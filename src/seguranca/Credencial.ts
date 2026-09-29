@@ -10,18 +10,17 @@ export class Credencial implements Autenticavel {
   papel: PapelUsuario;
 
   constructor(
-  usuario: string = "",
-  hashSenha: string = "",
-  salt: string = "",
-  ultimoAcesso: Date = new Date(),
-  papel: PapelUsuario = PapelUsuario.OPERADOR_CADASTRO
-) {
-  this.usuario = usuario;
-  this.hashSenha = hashSenha;
-  this.salt = salt;
-  this.ultimoAcesso = ultimoAcesso;
-  this.papel = papel;
-}
+    usuario: string = "",
+    hashSenha: string = "",
+    salt: string = "",
+    papel: PapelUsuario = PapelUsuario.AUDITOR
+  ) {
+    this.usuario = usuario;
+    this.hashSenha = hashSenha;
+    this.salt = salt;
+    this.papel = papel;
+    this.ultimoAcesso = new Date();
+  }
 
   verificarSenha(senhaPlana: string): boolean {
     const calculado = crypto.createHash("sha256").update(senhaPlana + this.salt).digest();
@@ -39,5 +38,11 @@ export class Credencial implements Autenticavel {
 
   renovarToken(): string {
     return crypto.randomBytes(32).toString("hex");
+  }
+
+  static fromJSON(o: any): Credencial {
+    const c = new Credencial(o.usuario, o.hashSenha, o.salt, o.papel);
+    c.ultimoAcesso = new Date(o.ultimoAcesso);
+    return c;
   }
 }

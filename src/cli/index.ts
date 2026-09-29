@@ -1,17 +1,19 @@
 import { CLIInterface } from "./CLIInterface";
 
-const ASSINATURA = "KamilleF - 2026" 
+import { CLIInterface } from "./CLIInterface";
 
-if (process.argv.includes("--autor")) {
+const ASSINATURA = "KamilleF - 2026";
+
+if (process.argv.includes("--green")) {
   console.log(`
-  GreenCode
-  Desenvolvido por: Kamille
-  Assinatura: ${ASSINATURA}
-  `);
+GreenCode
+Desenvolvido por: Kamille
+Assinatura: ${ASSINATURA}
+`);
 }
 
 const cli = new CLIInterface();
-
 cli.iniciarLoop().catch((erro) => {
-  console.error("[ERRO]", erro.message);
+  console.error("Erro fatal:", erro);
+  process.exit(1);
 });

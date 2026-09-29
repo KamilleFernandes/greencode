@@ -11,6 +11,14 @@ export class Sessao implements Autenticavel {
   criacao: Date;
   expiracao: Date;
 
+  constructor(token: string = "", usuario: string = "", papel: PapelUsuario = PapelUsuario.AUDITOR) {
+    this.token = token;
+    this.usuario = usuario;
+    this.papel = papel;
+    this.criacao = new Date();
+    this.expiracao = new Date(Date.now() + DURACAO_SESSAO_MS);
+  }
+
   isValida(): boolean {
     return new Date() < this.expiracao;
   }

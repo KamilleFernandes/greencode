@@ -23,4 +23,19 @@ export class ConfiguracaoGlobal {
   static obterCoeficienteDepreciacao(tipo: TipoEquipamento): number {
     return ConfiguracaoGlobal.coeficientesDepreciacao.get(tipo) ?? ConfiguracaoGlobal.coeficienteDepreciacaoPadrao;
   }
+
+  // Estado estático puro: sem isso, toda configuração do administrador se
+  // perdia ao encerrar o processo do CLI. Serializado/restaurado pelo CLIInterface.
+  static toJSON(): { aliquotaImposto: number; coeficientes: [TipoEquipamento, number][] } {
+    return {
+      aliquotaImposto: ConfiguracaoGlobal.aliquotaImposto,
+      coeficientes: Array.from(ConfiguracaoGlobal.coeficientesDepreciacao.entries()),
+    };
+  }
+
+  static carregarDeJSON(o: { aliquotaImposto?: number; coeficientes?: [TipoEquipamento, number][] } | null): void {
+    if (!o) return;
+    ConfiguracaoGlobal.aliquotaImposto = o.aliquotaImposto ?? 0;
+    ConfiguracaoGlobal.coeficientesDepreciacao = new Map(o.coeficientes ?? []);
+  }
 }
