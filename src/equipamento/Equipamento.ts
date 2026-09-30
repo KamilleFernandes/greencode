@@ -3,7 +3,7 @@ import { ConfiguracaoGlobal } from "../organizacao/ConfiguracaoGlobal";
 import { TipoEquipamento } from "./TipoEquipamento";
 import { EstadoFisico } from "./EstadoFisico";
 import { StatusRastreamento } from "./StatusRastreamento";
-import { Movimentacao } from "./Movimentacao";
+import Movimentacao from "./Movimentacao";
 
 export const ARQUIVO_EQUIPAMENTOS = "equipamentos.dat";
 

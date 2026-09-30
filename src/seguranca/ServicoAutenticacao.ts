@@ -44,19 +44,53 @@ export class ServicoAutenticacao {
     return true;
   }
 
-  alterarSenha(usuario: string, senhaAntiga: string, senhaNova: string): boolean {
-    const credencial = this.credenciais.find((c) => c.usuario === usuario);
-    if (!credencial || !credencial.verificarSenha(senhaAntiga)) {
-      return false;
-    }
+  alterarSenha(
+              usuario: string,
+              senhaAntiga: string,
+              senhaNova: string
+            ): boolean {
+              const credencial = this.credenciais.find(
+                (c) => c.usuario === usuario
+              );
 
-    const salt = crypto.randomBytes(16).toString("hex");
-    credencial.hashSenha = crypto.createHash("sha256").update(senhaNova + salt).digest("hex");
-    credencial.salt = salt;
+              if (
+                !credencial ||
+                !credencial.verificarSenha(senhaAntiga)
+              ) {
+                return false;
+              }
 
-    new JournalTransacao("ALTERAR_SENHA", "Credencial", null, { usuario }).registrar();
-    return true;
-  }
+              if (
+                typeof senhaNova !== "string" ||
+                senhaNova.length < 8 ||
+                !/[A-Za-z]/.test(senhaNova) ||
+                !/\d/.test(senhaNova)
+              ) {
+                throw new Error(
+                  "A nova senha deve ter no mínimo 8 caracteres, com letras e números."
+                );
+              }
+
+              const salt = crypto
+                .randomBytes(16)
+                .toString("hex");
+
+              credencial.hashSenha = crypto
+                .createHash("sha256")
+                .update(senhaNova + salt)
+                .digest("hex");
+
+              credencial.salt = salt;
+
+              new JournalTransacao(
+                "ALTERAR_SENHA",
+                "Credencial",
+                null,
+                { usuario }
+              ).registrar();
+
+              return true;
+      }
 
   criarUsuario(usuario: string, senha: string, papel: PapelUsuario): Credencial {
     const nome = String(usuario ?? "").trim().toLowerCase();

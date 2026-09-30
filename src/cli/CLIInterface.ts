@@ -150,7 +150,8 @@ export class CLIInterface {
 
     const criptografia = new CriptografiaArquivo();
     const chaveHex = criptografia.gerarChave();
-    fs.writeFileSync(ARQUIVO_CONFIG, JSON.stringify({ chaveHex }), { encoding: "utf8", mode: 0o600 });
+
+    fs.writeFileSync(ARQUIVO_CONFIG,JSON.stringify({chaveHex,dministradorInicial: {usuario: "admin",papel: PapelUsuario.ADMINISTRADOR}},null, 2),{encoding: "utf8",mode: 0o600});
 
     return { chaveHex, senhaAdminInicial: senha };
   }
@@ -227,11 +228,17 @@ export class CLIInterface {
       if (/--senha|--antiga|--nova/i.test(entrada)) this.esquecerUltimaLinhaDoHistorico();
       this.salvarLinhaNoHistorico(entrada);
 
-      if (entrada.trim() === "sair") {
-        this.autenticacao.logout(this.sessaoAtual.token);
-        JournalTransacao.definirUsuarioAtual(null);
-        this.sessaoAtual = null;
-        break;
+     if (entrada.trim() === "sair") {
+          this.autenticacao.logout(this.sessaoAtual.token);
+          JournalTransacao.definirUsuarioAtual(null);
+          this.sessaoAtual = null;
+
+          console.log(
+            "\n[OK] Logout realizado. Faça login com outro usuário.\n"
+          );
+
+          await this.fazerLogin();
+          continue;
       }
 
       if (entrada.trim() === "ajuda") {
@@ -250,18 +257,154 @@ export class CLIInterface {
   }
 
   private exibirAjuda(): void {
-    console.log("\nExemplos de uso:");
-    console.log('  organizacao cadastrar --razaoSocial "ACME LTDA" --cnpj 11222333000181 --inscricao 123 --endereco "Rua X, 1" --telefone 1140000000 --email contato@acme.com --contratoVencimento 2027-01-01 --contratoValor 5000');
-    console.log("  lote criar --org BR001 --nf 12345 --transp TransRapida");
-    console.log("  lote equipamento --lote LT00001 --tipo NOTEBOOK --marca Dell --modelo Latitude --ano 2021 --estado BOM_ESTADO --peso 2.3");
-    console.log("  lote triagem --lote LT00001   (chame duas vezes: RECEBIDO->EM_TRIAGEM, depois EM_TRIAGEM->TRIAGEM_CONCLUIDA)");
-    console.log("  equipamento movimentar --id EQ000001 --status AGUARDANDO_DESMONTE");
-    console.log("  equipamento estado --id EQ000001 --estado DANIFICADO_GRAVE --justificativa \"queda no transporte\"");
-    console.log("  relatorio organizacao --org BR001 --inicio 2026-01-01 --fim 2026-12-31\n");
+  const papel = this.sessaoAtual?.papel;
+
+  console.log("\n=== AJUDA GREENCODE ===");
+
+  if (papel === PapelUsuario.ADMINISTRADOR) {
+    console.log("\nUsuários:");
+
+    console.log(
+      "  usuario criar --login operador --senha Teste123 --papel OPERADOR_CADASTRO"
+    );
+
+    console.log(
+      "  usuario remover --login operador"
+    );
+
+    console.log(
+      "  usuario listar"
+    );
+
+    console.log(
+      "  usuario papel --login operador --papel AUDITOR"
+    );
+
+    console.log("\nConfigurações:");
+
+    console.log(
+      "  config aliquota --valor 0.17"
+    );
+
+    console.log(
+      "  config depreciacao --tipo NOTEBOOK --valor 0.15"
+    );
+
+    console.log("\nSenha:");
+
+    console.log(
+      '  senha alterar --antiga "senha atual" --nova "NovaSenha123"'
+    );
   }
 
+  if (papel === PapelUsuario.OPERADOR_CADASTRO) {
+    console.log("\nOrganizações:");
+
+    console.log(
+      '  organizacao cadastrar --razaoSocial "ACME LTDA" --cnpj 11222333000181 --inscricao 123 --endereco "Rua X, 1" --telefone 1140000000 --email contato@acme.com --contratoVencimento 2027-01-01 --contratoValor 5000'
+    );
+
+    console.log(
+      "  organizacao listar"
+    );
+
+    console.log(
+      "  organizacao buscar --id BR001"
+    );
+
+    console.log(
+      "  organizacao renovar --id BR001 --vencimento 2028-01-01"
+    );
+
+    console.log("\nSenha:");
+
+    console.log(
+      '  senha alterar --antiga "senha atual" --nova "NovaSenha123"'
+    );
+  }
+
+  if (papel === PapelUsuario.GESTOR_ALMOXARIFADO) {
+    console.log("\nLotes:");
+
+    console.log(
+      "  lote criar --org BR001 --nf 12345 --transp TransRapida"
+    );
+
+    console.log(
+      "  lote equipamento --lote LT00001 --tipo NOTEBOOK --marca Dell --modelo Latitude --ano 2021 --estado BOM_ESTADO --peso 2.3"
+    );
+
+    console.log(
+      "  lote triagem --lote LT00001"
+    );
+
+    console.log(
+      "  lote consultar --id LT00001"
+    );
+
+    console.log(
+      "  lote relatorio --id LT00001"
+    );
+
+    console.log("\nEquipamentos:");
+
+    console.log(
+      "  equipamento movimentar --id EQ000001 --status AGUARDANDO_DESMONTE"
+    );
+
+    console.log(
+      '  equipamento estado --id EQ000001 --estado DANIFICADO_GRAVE --justificativa "queda no transporte"'
+    );
+
+    console.log(
+      "  equipamento rastrear --id EQ000001"
+    );
+
+    console.log("\nSenha:");
+
+    console.log(
+      '  senha alterar --antiga "senha atual" --nova "NovaSenha123"'
+    );
+  }
+
+  if (papel === PapelUsuario.AUDITOR) {
+    console.log("\nConsultas e relatórios:");
+
+    console.log(
+      "  equipamento rastrear --id EQ000001"
+    );
+
+    console.log(
+      "  relatorio organizacao --org BR001 --inicio 2026-01-01 --fim 2026-12-31"
+    );
+
+    console.log(
+      "  relatorio status --status AGUARDANDO_DESMONTE"
+    );
+
+    console.log(
+      "  relatorio financeiro --inicio 2026-01-01 --fim 2026-12-31"
+    );
+
+    console.log("\nSenha:");
+
+    console.log(
+      '  senha alterar --antiga "senha atual" --nova "NovaSenha123"'
+    );
+  }
+
+  console.log("\nComandos gerais:");
+  console.log("  ajuda");
+  console.log("  sair");
+  console.log();
+}
+
   processarComando(entrada: string): void {
-    const papel = this.sessaoAtual?.papel;
+    if (!this.sessaoAtual) {
+      throw new Error("Nenhum usuário autenticado.");
+    }
+
+    const papel = this.sessaoAtual.papel;
     const partes = entrada.trim().split(/\s+/);
     const [acao, sub, ...resto] = partes;
     const comando = `${acao ?? ""} ${sub ?? ""}`.trim();
@@ -297,24 +440,53 @@ export class CLIInterface {
         }
 
         case "config aliquota": {
-          ConfiguracaoGlobal.definirAliquotaImposto(Number(flags.valor));
-          this.repositorio.salvarEntidade("configuracao.dat", [ConfiguracaoGlobal.toJSON()]);
-          console.log(`[OK] Alíquota de imposto definida para ${(Number(flags.valor) * 100).toFixed(2)}%.`);
+          const valor = Number(flags.valor);
+          if (!Number.isFinite(valor) ||valor < 0 ||valor > 1) {
+            throw new Error("Alíquota deve estar entre 0 e 1 (ex: 0.17 para 17%).");
+          }
+          const valorAnterior = ConfiguracaoGlobal.obterAliquotaImposto();
+
+          new JournalTransacao("ALTERAR_CONFIGURACAO","ConfiguracaoGlobal", {aliquotaImposto: valorAnterior},
+          {aliqotaImposto: valor} ).registrar();
+
+          ConfiguracaoGlobal.definirAliquotaImposto(valor);
+          this.repositorio.salvarEntidade("configuracao.dat",[ConfiguracaoGlobal.toJSON()]);
+          console.log(`[OK] Alíquota de imposto definida para ${(valor * 100).toFixed(2)}%.`);
+
           break;
         }
+
         case "config depreciacao": {
-          const tipo = flags.tipo as TipoEquipamento;
-          if (!Object.values(TipoEquipamento).includes(tipo)) throw new Error("Tipo de equipamento inválido.");
-          ConfiguracaoGlobal.definirCoeficienteDepreciacao(tipo, Number(flags.valor));
-          this.repositorio.salvarEntidade("configuracao.dat", [ConfiguracaoGlobal.toJSON()]);
-          console.log(`[OK] Coeficiente de depreciação de ${tipo} definido para ${(Number(flags.valor) * 100).toFixed(2)}%/ano.`);
+          const tipo =flags.tipo as TipoEquipamento;
+          const valor =Number(flags.valor);
+          if (!Object.values(TipoEquipamento).includes(tipo)) {
+            throw new Error("Tipo de equipamento inválido.");
+          }
+          if (!Number.isFinite(valor) ||valor < 0 ||valor > 1) {
+            throw new Error("Coeficiente de depreciação deve estar entre 0 e 1.");
+          }
+          const valorAnterior = ConfiguracaoGlobal.obterCoeficienteDepreciacao(tipo);
+          new JournalTransacao("ALTERAR_CONFIGURACAO","ConfiguracaoGlobal",
+          {tipo,coeficiente: valorAnterior},{tipo,coeficiente: valor}).registrar();
+          ConfiguracaoGlobal.definirCoeficienteDepreciacao(tipo,valor);
+          this.repositorio.salvarEntidade("configuracao.dat",[ConfiguracaoGlobal.toJSON()]);
+          console.log(`[OK] Coeficiente de depreciação de ${tipo} definido para ${(valor * 100).toFixed(2)}%/ano.`);
+
           break;
         }
 
         case "senha alterar": {
-          const ok = this.autenticacao.alterarSenha(this.sessaoAtual!.usuario, flags.antiga, flags.nova);
-          if (ok) salvarCredenciais(this.repositorio, this.autenticacao.credenciais);
-          console.log(ok ? "[OK] Senha alterada." : "[ERRO] Senha antiga incorreta.");
+          if (!flags.antiga || !flags.nova) {
+            throw new Error('Uso: senha alterar --antiga "senha atual" --nova "nova senha"');
+          }
+          const ok = this.autenticacao.alterarSenha(this.sessaoAtual!.usuario,flags.antiga,flags.nova);
+
+          if (!ok) {
+            throw new Error("Senha antiga incorreta.");
+          }
+          salvarCredenciais(this.repositorio,this.autenticacao.credenciais);
+          console.log("[OK] Senha alterada.");
+
           break;
         }
 
@@ -335,10 +507,80 @@ export class CLIInterface {
           break;
         }
         case "organizacao buscar": {
-          const org = this.organizacao.buscarOrganizacao(flags.id);
-          console.log(`${org.id} | ${org.razaoSocial} | CNPJ ${org.cnpj} | ativo: ${org.ativo}`);
-          break;
-        }
+  this.exigirPapel(
+    papel,
+    PapelUsuario.OPERADOR_CADASTRO
+  );
+
+  if (!flags.id || !flags.id.trim()) {
+    throw new Error(
+      "Uso: organizacao buscar --id BR001"
+    );
+  }
+
+  const organizacaoEncontrada =
+    this.organizacao.buscarOrganizacao(flags.id.trim());
+
+  if (!organizacaoEncontrada) {
+    throw new Error(
+      `Organização ${flags.id} não encontrada.`
+    );
+  }
+
+  console.log(
+    `ID: ${organizacaoEncontrada.id}`
+  );
+
+  console.log(
+    `Razão Social: ${organizacaoEncontrada.razaoSocial}`
+  );
+
+  console.log(
+    `CNPJ: ${organizacaoEncontrada.cnpj}`
+  );
+
+  console.log(
+    `Inscrição Estadual: ${organizacaoEncontrada.inscricaoEstadual}`
+  );
+
+  console.log(
+    `Endereço: ${organizacaoEncontrada.enderecoCompleto}`
+  );
+
+  console.log(
+    `Telefone: ${organizacaoEncontrada.telefone}`
+  );
+
+  console.log(
+    `E-mail: ${organizacaoEncontrada.email}`
+  );
+
+  if (
+    organizacaoEncontrada.contratoVigente
+  ) {
+    console.log(
+      `Contrato: ${organizacaoEncontrada.contratoVigente.id}`
+    );
+
+    console.log(
+      `Vencimento: ${new Date(
+        organizacaoEncontrada
+          .contratoVigente
+          .dataVencimento
+      ).toLocaleDateString()}`
+    );
+
+    console.log(
+      `Valor mensal: R$ ${organizacaoEncontrada.contratoVigente.valorMensal.toFixed(2)}`
+    );
+  } else {
+    console.log(
+      "Contrato: não cadastrado"
+    );
+  }
+
+  break;
+}
         case "organizacao listar": {
           const ativas = this.organizacao.listarOrganizacoesAtivas();
           console.log(`Total ativas: ${ativas.length}`);
@@ -434,7 +676,7 @@ export class CLIInterface {
           break;
 
         default:
-          console.log(`Comando não reconhecido: "${entrada}". Digite "ajuda" para ver exemplos.`);
+            throw new Error(`Comando não reconhecido: "${entrada}". Digite "ajuda" para ver exemplos.`);
       }
 
       this.sessaoAtual!.renovar(); // 30 min de INATIVIDADE: só renova após comando aceito e executado

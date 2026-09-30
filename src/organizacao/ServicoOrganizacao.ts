@@ -17,47 +17,138 @@ export class ServicoOrganizacao {
   }
 
   cadastrarOrganizacao(dados: any): Organizacao {
-    for (const campo of CAMPOS_OBRIGATORIOS) {
-      if (!String(dados?.[campo] ?? "").trim()) throw new Error(`Campo obrigatório ausente: ${campo}.`);
-    }
-    const cnpj = String(dados.cnpj ?? "").replace(/\D/g, "");
-    if (!this.validadorCNPJ.validar(cnpj)) {
-      throw new Error(this.validadorCNPJ.obterMensagemErro());
-    }
-
-    const existentes = this.listarTodas();
-    if (existentes.some((o) => o.cnpj === cnpj)) throw new Error("CNPJ já cadastrado.");
-
-    const organizacao = new Organizacao(
-      this.gerarProximoId(existentes),
-      String(dados.razaoSocial).trim(),
-      cnpj,
-      String(dados.inscricaoEstadual).trim(),
-      String(dados.enderecoCompleto).trim(),
-      String(dados.telefone).trim(),
-      String(dados.email).trim()
-    );
-
-    if (dados.contrato) {
-      const c = dados.contrato;
-      if (!c.dataVencimento || c.valorMensal === undefined) {
-        throw new Error("Contrato inicial exige dataVencimento e valorMensal.");
-      }
-      organizacao.contratoVigente = new Contrato(
-        `${organizacao.id}-C1`,
-        organizacao.id,
-        new Date(),
-        new Date(c.dataVencimento),
-        c.clausulas ?? [],
-        Number(c.valorMensal),
-        !!c.renovacaoAutomatica
+  for (const campo of CAMPOS_OBRIGATORIOS) {
+    if (!String(dados?.[campo] ?? "").trim()) {
+      throw new Error(
+        `Campo obrigatório ausente: ${campo}.`
       );
     }
-
-    new JournalTransacao("CADASTRAR", "Organizacao", null, organizacao).registrar(); // antes de gravar
-    this.salvarTodas([...existentes, organizacao]);
-    return organizacao;
   }
+
+  const cnpj = String(
+    dados.cnpj ?? ""
+  ).replace(/\D/g, "");
+
+  if (!this.validadorCNPJ.validar(cnpj)) {
+    throw new Error(
+      this.validadorCNPJ.obterMensagemErro()
+    );
+  }
+
+  const existentes = this.listarTodas();
+
+  if (
+    existentes.some(
+      (o) => o.cnpj === cnpj
+    )
+  ) {
+    throw new Error(
+      "CNPJ já cadastrado."
+    );
+  }
+
+  if (!dados.contrato) {
+    throw new Error(
+      "Contrato inicial obrigatório para o cadastro da organização."
+    );
+  }
+
+  const contrato = dados.contrato;
+
+  if (
+    !contrato.dataVencimento ||
+    contrato.valorMensal === undefined
+  ) {
+    throw new Error(
+      "Contrato inicial exige dataVencimento e valorMensal."
+    );
+  }
+
+  const dataVencimento =
+    new Date(
+      contrato.dataVencimento
+    );
+
+  if (
+    isNaN(
+      dataVencimento.getTime()
+    )
+  ) {
+    throw new Error(
+      "Data de vencimento do contrato inválida."
+    );
+  }
+
+  if (
+    dataVencimento <= new Date()
+  ) {
+    throw new Error(
+      "A data de vencimento do contrato deve ser futura."
+    );
+  }
+
+  const valorMensal =
+    Number(
+      contrato.valorMensal
+    );
+
+  if (
+    !Number.isFinite(valorMensal) ||
+    valorMensal < 0
+  ) {
+    throw new Error(
+      "Valor mensal do contrato inválido."
+    );
+  }
+
+  const organizacao =
+    new Organizacao(
+      this.gerarProximoId(
+        existentes
+      ),
+      String(
+        dados.razaoSocial
+      ).trim(),
+      cnpj,
+      String(
+        dados.inscricaoEstadual
+      ).trim(),
+      String(
+        dados.enderecoCompleto
+      ).trim(),
+      String(
+        dados.telefone
+      ).trim(),
+      String(
+        dados.email
+      ).trim()
+    );
+
+  organizacao.contratoVigente =
+    new Contrato(
+      `${organizacao.id}-C1`,
+      organizacao.id,
+      new Date(),
+      dataVencimento,
+      contrato.clausulas ?? [],
+      valorMensal,
+      !!contrato.renovacaoAutomatica
+    );
+
+  new JournalTransacao(
+    "CADASTRAR",
+    "Organizacao",
+    null,
+    organizacao
+  ).registrar();
+
+  this.salvarTodas([
+    ...existentes,
+    organizacao
+  ]);
+
+  return organizacao;
+}
 
   buscarOrganizacao(id: string): Organizacao {
     return this.reidratar(this.repositorio.carregarEntidade(ARQUIVO_ORGANIZACOES, id));
