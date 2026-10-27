@@ -1,0 +1,21 @@
+{
+  "name": "greencode",
+  "version": "1.0.0",
+  "description": "Sistema CLI para logística reversa de equipamentos eletrônicos",
+  "main": "out/cli/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && node out/cli/index.js",
+    "test:jornada": "npm run build && node --test testes/jornada-completa.test.js",
+    "test:detalhes": "npm run build && node --test testes/cenarios-falha.test.js",
+    "test": "npm run build && node --test testes/jornada-completa.test.js testes/cenarios-falha.test.js testes/regressoes.test.js",
+    "test:regressoes": "npm run build && node --test testes/regressoes.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
