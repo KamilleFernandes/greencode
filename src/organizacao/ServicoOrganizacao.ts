@@ -3,6 +3,7 @@ import { ValidadorCNPJ } from "../validacao/ValidadorCNPJ";
 import { JournalTransacao } from "../auditoria/JournalTransacao";
 import { Organizacao } from "./Organizacao";
 import { Contrato } from "./Contrato";
+import { parseData } from "../util/Data";
 
 const ARQUIVO_ORGANIZACOES = "organizacoes.dat";
 const CAMPOS_OBRIGATORIOS = ["razaoSocial", "inscricaoEstadual", "enderecoCompleto", "telefone", "email"];
@@ -65,9 +66,7 @@ export class ServicoOrganizacao {
   }
 
   const dataVencimento =
-    new Date(
-      contrato.dataVencimento
-    );
+    parseData(contrato.dataVencimento);
 
   if (
     isNaN(

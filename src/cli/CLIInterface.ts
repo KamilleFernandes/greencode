@@ -17,6 +17,7 @@ import { EstadoFisico } from "../equipamento/EstadoFisico";
 import { StatusRastreamento } from "../equipamento/StatusRastreamento";
 import { ServicoRelatorio } from "../relatorio/ServicoRelatorio";
 import { ValidadorCNPJ } from "../validacao/ValidadorCNPJ";
+import { parseData } from "../util/Data";
 
 const DATA_DIR = path.join(__dirname, "..", "..", "data");
 const ARQUIVO_CONFIG = path.join(DATA_DIR, "config.master");
@@ -46,6 +47,8 @@ const PERMISSOES: Record<string, PapelUsuario[]> = {
   "relatorio status": [PapelUsuario.AUDITOR],
   "relatorio financeiro": [PapelUsuario.AUDITOR],
 };
+
+const LIMITE_HISTORICO = 500;
 
 const COMANDOS_CONHECIDOS = [...Object.keys(PERMISSOES), "ajuda", "sair"];
 
@@ -102,10 +105,23 @@ export class CLIInterface {
     this.rl = this.criarReadlineComHistorico();
     this.iniciarLeituraDeLinhas();
 
-    const precisaProvisionar = !fs.existsSync(ARQUIVO_CONFIG);
-    const { chaveHex, senhaAdminInicial } = precisaProvisionar
-      ? await this.perguntarSenhaAdminInicial()
-      : { chaveHex: await this.carregarConfiguracao(), senhaAdminInicial: null };
+    const configExiste = fs.existsSync(ARQUIVO_CONFIG);
+    const precisaProvisionar = !configExiste || !fs.existsSync(path.join(DATA_DIR, "credenciais.dat"));
+    let chaveHex: string;
+    let senhaAdminInicial: string | null = null;
+
+    if (precisaProvisionar) {
+      if (configExiste) {
+        console.log("[AVISO] Provisionamento anterior incompleto: defina novamente a senha do administrador.");
+        chaveHex = await this.carregarConfiguracao();
+      } else {
+        this.arquivarResiduosOrfaos();
+        chaveHex = new CriptografiaArquivo().gerarChave();
+      }
+      senhaAdminInicial = await this.perguntarSenhaAdminInicial();
+    } else {
+      chaveHex = await this.carregarConfiguracao();
+    }
 
     const criptografia = new CriptografiaArquivo();
     this.repositorio = new RepositorioArquivo(DATA_DIR, criptografia, chaveHex);
@@ -128,6 +144,8 @@ export class CLIInterface {
     if (precisaProvisionar) {
       this.autenticacao.criarUsuario("admin", senhaAdminInicial!, PapelUsuario.ADMINISTRADOR);
       salvarCredenciais(this.repositorio, this.autenticacao.credenciais);
+      // config.master é gravado por ÚLTIMO: se o processo cair antes, nada fica pela metade.
+      if (!configExiste) this.gravarConfiguracaoAtomica(chaveHex);
       console.log("Administrador 'admin' criado com sucesso.\n");
     } else {
       this.autenticacao.credenciais = carregarCredenciais(this.repositorio);
@@ -137,7 +155,7 @@ export class CLIInterface {
     await this.loopDeComandos();
   }
 
-  private async perguntarSenhaAdminInicial(): Promise<{ chaveHex: string; senhaAdminInicial: string }> {
+  private async perguntarSenhaAdminInicial(): Promise<string> {
     console.log("\n=== Provisionamento inicial do greencode ===");
     let senha = "";
     while (senha.length < 8 || !/[A-Za-z]/.test(senha) || !/\d/.test(senha)) {
@@ -147,13 +165,40 @@ export class CLIInterface {
         console.log("Senha fraca. Tente novamente.");
       }
     }
+    return senha;
+  }
 
-    const criptografia = new CriptografiaArquivo();
-    const chaveHex = criptografia.gerarChave();
+  private gravarConfiguracaoAtomica(chaveHex: string): void {
+    const conteudo = JSON.stringify(
+      { chaveHex, administradorInicial: { usuario: "admin", papel: PapelUsuario.ADMINISTRADOR } },
+      null,
+      2
+    );
+    const temporario = `${ARQUIVO_CONFIG}.${process.pid}.tmp`;
+    try {
+      const fd = fs.openSync(temporario, "w", 0o600);
+      try {
+        fs.writeSync(fd, conteudo);
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
+      fs.renameSync(temporario, ARQUIVO_CONFIG);
+    } catch (e) {
+      if (fs.existsSync(temporario)) fs.unlinkSync(temporario);
+      throw e;
+    }
+  }
 
-    fs.writeFileSync(ARQUIVO_CONFIG,JSON.stringify({chaveHex,dministradorInicial: {usuario: "admin",papel: PapelUsuario.ADMINISTRADOR}},null, 2),{encoding: "utf8",mode: 0o600});
-
-    return { chaveHex, senhaAdminInicial: senha };
+  // Sobras de um provisionamento interrompido (cifradas com uma chave que não existe mais)
+  // são renomeadas, nunca apagadas.
+  private arquivarResiduosOrfaos(): void {
+    const carimbo = new Date().toISOString().replace(/[:.]/g, "-");
+    for (const f of fs.readdirSync(DATA_DIR)) {
+      if (/\.dat$/.test(f) || /^journal.*\.log$/.test(f)) {
+        fs.renameSync(path.join(DATA_DIR, f), path.join(DATA_DIR, `${f}.orfao-${carimbo}`));
+      }
+    }
   }
 
   private async carregarConfiguracao(): Promise<string> {
@@ -163,8 +208,8 @@ export class CLIInterface {
 
   private criarReadlineComHistorico(): readline.Interface {
     const historico = fs.existsSync(ARQUIVO_HISTORICO)
-      ? fs.readFileSync(ARQUIVO_HISTORICO, "utf8").split("\n").filter(Boolean)
-      : [];
+      ? fs.readFileSync(ARQUIVO_HISTORICO, "utf8").split("\n").filter(Boolean).slice(-LIMITE_HISTORICO).reverse()
+      : []; // o readline espera o mais recente primeiro
 
     const completer = (linha: string): [string[], string] => {
       const compativeis = COMANDOS_CONHECIDOS.filter((c) => c.startsWith(linha));
@@ -182,7 +227,7 @@ export class CLIInterface {
   private salvarLinhaNoHistorico(linha: string): void {
     if (!linha.trim()) return;
     const redigida = linha.replace(/(--senha|--antiga|--nova)(\s+)(\S+)/gi, "$1$2[OCULTO]");
-    fs.appendFileSync(ARQUIVO_HISTORICO, redigida + "\n", "utf8");
+    fs.appendFileSync(ARQUIVO_HISTORICO, redigida + "\n", { encoding: "utf8", mode: 0o600 });
   }
 
   private async fazerLogin(): Promise<void> {
@@ -447,7 +492,7 @@ export class CLIInterface {
           const valorAnterior = ConfiguracaoGlobal.obterAliquotaImposto();
 
           new JournalTransacao("ALTERAR_CONFIGURACAO","ConfiguracaoGlobal", {aliquotaImposto: valorAnterior},
-          {aliqotaImposto: valor} ).registrar();
+          {aliquotaImposto: valor} ).registrar();
 
           ConfiguracaoGlobal.definirAliquotaImposto(valor);
           this.repositorio.salvarEntidade("configuracao.dat",[ConfiguracaoGlobal.toJSON()]);
@@ -507,10 +552,6 @@ export class CLIInterface {
           break;
         }
         case "organizacao buscar": {
-  this.exigirPapel(
-    papel,
-    PapelUsuario.OPERADOR_CADASTRO
-  );
 
   if (!flags.id || !flags.id.trim()) {
     throw new Error(
@@ -588,7 +629,7 @@ export class CLIInterface {
           break;
         }
         case "organizacao renovar": {
-          this.organizacao.renovarContrato(flags.id, new Date(flags.vencimento));
+          this.organizacao.renovarContrato(flags.id, parseData(flags.vencimento));
           console.log(`[OK] Contrato da organização ${flags.id} renovado até ${flags.vencimento}.`);
           break;
         }
@@ -598,7 +639,7 @@ export class CLIInterface {
             organizacaoId: flags.org,
             notaFiscal: flags.nf,
             transportadora: flags.transp,
-            dataEntrada: flags.data ? new Date(flags.data) : new Date(),
+            dataEntrada: flags.data ? parseData(flags.data) : new Date(),
           });
           console.log(`[OK] Lote criado (id: ${novoLote.id}).`);
           break;
@@ -623,7 +664,7 @@ export class CLIInterface {
           break;
         }
         case "lote consultar": {
-          const lotes = this.lote.consultarLotePorPeriodo(new Date(flags.inicio), new Date(flags.fim));
+          const lotes = this.lote.consultarLotePorPeriodo(parseData(flags.inicio), parseData(flags.fim, true));
           console.log(`Total: ${lotes.length}`);
           lotes.forEach((l) => console.log(`  ${l.id} | ${l.dataEntrada.toLocaleDateString()} | ${l.statusProcessamento} | ${l.equipamentos.length} equip.`));
           break;
@@ -659,7 +700,7 @@ export class CLIInterface {
 
         case "relatorio organizacao": {
           console.log(
-            this.relatorio.gerarRelatorioPorOrganizacao(flags.org, { inicio: new Date(flags.inicio), fim: new Date(flags.fim) })
+            this.relatorio.gerarRelatorioPorOrganizacao(flags.org, { inicio: parseData(flags.inicio), fim: parseData(flags.fim, true) })
           );
           break;
         }
@@ -668,7 +709,7 @@ export class CLIInterface {
           break;
         }
         case "relatorio financeiro": {
-          console.log(this.relatorio.gerarRelatorioFinanceiro({ inicio: new Date(flags.inicio), fim: new Date(flags.fim) }));
+          console.log(this.relatorio.gerarRelatorioFinanceiro({ inicio: parseData(flags.inicio), fim: parseData(flags.fim, true) }));
           break;
         }
 

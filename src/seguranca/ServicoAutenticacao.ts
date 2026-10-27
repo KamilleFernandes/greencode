@@ -14,7 +14,13 @@ export class ServicoAutenticacao {
 
     const credencial = this.credenciais.find((c) => c.usuario === usuario);
     if (!credencial || !credencial.verificarSenha(senha)) {
-      new JournalTransacao("LOGIN_FALHA", "Sessao", null, { usuario }).registrar();
+      const anterior = JournalTransacao.obterUsuarioAtual();
+      JournalTransacao.definirUsuarioAtual(String(usuario ?? "").trim() || "DESCONHECIDO");
+      try {
+        new JournalTransacao("LOGIN_FALHA", "Sessao", null, { usuario }).registrar();
+      } finally {
+        JournalTransacao.definirUsuarioAtual(anterior);
+      }
       throw new Error("Usuário ou senha inválidos.");
     }
 
@@ -23,6 +29,7 @@ export class ServicoAutenticacao {
     const sessao = new Sessao(crypto.randomBytes(32).toString("hex"), credencial.usuario, credencial.papel);
     this.sessoesAtivas.push(sessao);
 
+    JournalTransacao.definirUsuarioAtual(credencial.usuario);
     new JournalTransacao("LOGIN", "Sessao", null, { usuario: credencial.usuario, papel: credencial.papel }).registrar();
     return sessao;
   }

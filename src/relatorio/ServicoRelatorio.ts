@@ -16,7 +16,19 @@ export class ServicoRelatorio {
     this.repositorio = repositorio;
   }
 
-  gerarRelatorioPorOrganizacao(organizacaoId: string, periodo: Periodo): string {
+  // início às 00:00:00 e fim às 23:59:59.999 do dia informado (dia final inclusivo)
+  private normalizar(periodo: Periodo): Periodo {
+    const inicio = new Date(periodo.inicio);
+    const fim = new Date(periodo.fim);
+    if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) throw new Error("Período inválido.");
+    inicio.setHours(0, 0, 0, 0);
+    fim.setHours(23, 59, 59, 999);
+    if (inicio > fim) throw new Error("Período inválido: início posterior ao fim.");
+    return { inicio, fim };
+  }
+
+  gerarRelatorioPorOrganizacao(organizacaoId: string, periodoInformado: Periodo): string {
+    const periodo = this.normalizar(periodoInformado);
     const lotes = carregarLotes(this.repositorio).filter((l) => {
       const data = new Date(l.dataEntrada);
       return l.organizacaoId === organizacaoId && data >= periodo.inicio && data <= periodo.fim;
@@ -51,7 +63,8 @@ export class ServicoRelatorio {
     return linhas.join("\n");
   }
 
-  gerarRelatorioFinanceiro(periodo: Periodo): string {
+  gerarRelatorioFinanceiro(periodoInformado: Periodo): string {
+    const periodo = this.normalizar(periodoInformado);
     const equipamentos = carregarEquipamentos(this.repositorio);
 
     const equipamentosNoPeriodo = equipamentos.filter((e) => {
