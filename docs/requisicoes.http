@@ -1,0 +1,152 @@
+### GreenCode API - jornada completa (extensão "REST Client" do VS Code)
+### Execute as requisições em ordem, clicando em "Send Request". Os tokens e ids ficam em variáveis.
+
+@host = http://localhost:3000
+@json = application/json
+
+### 1. Login de cada papel
+# @name loginAdmin
+POST {{host}}/auth/login
+Content-Type: {{json}}
+
+{ "login": "admin", "senha": "Admin@12345" }
+
+###
+# @name loginOperador
+POST {{host}}/auth/login
+Content-Type: {{json}}
+
+{ "login": "operador", "senha": "Operador123" }
+
+###
+# @name loginGestor
+POST {{host}}/auth/login
+Content-Type: {{json}}
+
+{ "login": "gestor", "senha": "Gestor123" }
+
+###
+# @name loginAuditor
+POST {{host}}/auth/login
+Content-Type: {{json}}
+
+{ "login": "auditor", "senha": "Auditor123" }
+
+###
+@tokenAdmin = {{loginAdmin.response.body.token}}
+@tokenOperador = {{loginOperador.response.body.token}}
+@tokenGestor = {{loginGestor.response.body.token}}
+@tokenAuditor = {{loginAuditor.response.body.token}}
+
+### 2. Administrador: configuração global
+GET {{host}}/configuracao
+Authorization: Bearer {{tokenAdmin}}
+
+### 3. Operador: cadastrar organização com contrato (troque o CNPJ por um válido e ainda não usado)
+# @name org
+POST {{host}}/organizacoes
+Authorization: Bearer {{tokenOperador}}
+Content-Type: {{json}}
+
+{
+  "razaoSocial": "Banco Exemplo S.A.",
+  "cnpj": "55.667.788/0001-86",
+  "inscricaoEstadual": "ISENTO",
+  "enderecoCompleto": "Av. Central, 100 - São Paulo/SP",
+  "telefone": "1130000000",
+  "email": "contato@bancoexemplo.com",
+  "contrato": { "dataAssinatura": "2026-01-10", "dataVencimento": "2028-01-10", "valorMensal": 4500, "clausulas": ["Logística reversa"] }
+}
+
+###
+@orgCodigo = {{org.response.body.codigo}}
+
+### 4. Gestor: criar lote já com equipamentos (uma única transação)
+# @name lote
+POST {{host}}/lotes
+Authorization: Bearer {{tokenGestor}}
+Content-Type: {{json}}
+
+{
+  "organizacaoId": "{{orgCodigo}}",
+  "notaFiscal": "123456",
+  "transportadora": "TransRapida",
+  "equipamentos": [
+    { "tipo": "NOTEBOOK", "marca": "Dell", "modelo": "Latitude", "anoFabricacao": 2021, "estadoFisico": "BOM_ESTADO", "pesoQuilogramas": 2.3 },
+    { "tipo": "MONITOR", "marca": "LG", "modelo": "24MK", "anoFabricacao": 2020, "estadoFisico": "NOVO", "pesoQuilogramas": 4 }
+  ]
+}
+
+###
+@loteCodigo = {{lote.response.body.codigo}}
+@loteVersao = {{lote.response.body.versao}}
+@eq1 = {{lote.response.body.equipamentos[0].codigo}}
+
+### 5. Desmonte antes da triagem deve ser BLOQUEADO (409)
+PATCH {{host}}/equipamentos/{{eq1}}/movimentacoes
+Authorization: Bearer {{tokenGestor}}
+Content-Type: {{json}}
+
+{ "destino": "AGUARDANDO_DESMONTE", "versao": 1 }
+
+### 6. Triagem, etapa 1 (gera códigos de barras)
+# @name tri1
+POST {{host}}/lotes/{{loteCodigo}}/triagem
+Authorization: Bearer {{tokenGestor}}
+Content-Type: {{json}}
+
+{ "versao": {{loteVersao}} }
+
+### 7. Triagem, etapa 2 (use a versão devolvida pela etapa 1)
+# @name tri2
+POST {{host}}/lotes/{{loteCodigo}}/triagem
+Authorization: Bearer {{tokenGestor}}
+Content-Type: {{json}}
+
+{ "versao": {{tri1.response.body.versao}} }
+
+### 8. Consultar o lote para ler a versão atual do equipamento
+# @name loteAtual
+GET {{host}}/lotes/{{loteCodigo}}
+Authorization: Bearer {{tokenGestor}}
+
+###
+@eqVersao = {{loteAtual.response.body.equipamentos[0].versao}}
+
+### 9. Movimentar: AGUARDANDO_DESMONTE (repita trocando destino e usando a versao devolvida)
+PATCH {{host}}/equipamentos/{{eq1}}/movimentacoes
+Authorization: Bearer {{tokenGestor}}
+Content-Type: {{json}}
+
+{ "destino": "AGUARDANDO_DESMONTE", "versao": {{eqVersao}} }
+
+### 10. Estado físico: queda de 2+ categorias exige justificativa (400 sem ela)
+PATCH {{host}}/equipamentos/{{loteAtual.response.body.equipamentos[1].codigo}}/estado-fisico
+Authorization: Bearer {{tokenGestor}}
+Content-Type: {{json}}
+
+{ "estadoFisico": "USADO_MODERADO", "versao": {{loteAtual.response.body.equipamentos[1].versao}} }
+
+### 11. Rastreabilidade
+GET {{host}}/equipamentos/{{eq1}}/rastreamento
+Authorization: Bearer {{tokenAuditor}}
+
+### 12. Relatórios (auditor)
+GET {{host}}/relatorios/organizacao?organizacaoId={{orgCodigo}}&inicio=2026-01-01&fim=2026-12-31
+Authorization: Bearer {{tokenAuditor}}
+
+###
+GET {{host}}/relatorios/status?status=AGUARDANDO_DESMONTE
+Authorization: Bearer {{tokenAuditor}}
+
+###
+GET {{host}}/relatorios/financeiro?inicio=2026-01-01&fim=2026-12-31
+Authorization: Bearer {{tokenAuditor}}
+
+### 13. Auditoria (journal)
+GET {{host}}/auditoria?limite=50
+Authorization: Bearer {{tokenAuditor}}
+
+### 14. Auditoria de um lote específico
+GET {{host}}/auditoria?entidade=Lote&entidadeId={{lote.response.body.id}}
+Authorization: Bearer {{tokenAuditor}}

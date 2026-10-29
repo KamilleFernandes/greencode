@@ -1,6 +1,10 @@
-.vscode/
-/node_modules/
-/node_modules/**
-/out/
-/out/**
-/data/
+node_modules/
+out/
+generated/
+src/generated/
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+.DS_Store
