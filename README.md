@@ -109,3 +109,10 @@ docs/                  execução, testes e requisições de exemplo
 - **`JWT_SECRET ausente ou insegura`:** gere uma chave de pelo menos 32 caracteres no `.env`.
 - **`TEST_DATABASE_URL`:** o banco de testes precisa ter "test" no nome; o script nunca usa o banco de desenvolvimento.
 - **Porta em uso:** altere `PORT` no `.env`.
+
+
+## AV3 — camada analítica e API para parceiros
+
+A versão AV3 inclui relatórios de eficiência operacional, rentabilidade estimada e vida útil, histórico analítico, chaves de API por organização, rotas públicas versionadas e fila PostgreSQL com worker/retry. Consulte `docs/AV3_RELATORIO_TECNICO.md` e `docs/API_PUBLICA.md`.
+
+Após configurar o `.env` e o PostgreSQL, aplique as migrações com `npm run migrate:deploy`, gere o cliente com `npm run generate`, execute os testes unitários analíticos com `npm run test:analytics` e a suíte de integração com `npm test`. A suíte de integração usa somente `TEST_DATABASE_URL`, que deve apontar para um banco cujo nome contenha `test`.

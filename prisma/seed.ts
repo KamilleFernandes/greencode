@@ -1,7 +1,7 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, EstadoFisico, PapelUsuario, StatusLote, StatusRastreamento, TipoEquipamento } from "../src/generated/prisma/client.js";
+import { PrismaClient, EstadoFisico, PapelUsuario, StatusLote, StatusRastreamento, TipoEquipamento } from "../../Downloads/greencode-av3-completo/greencode/src/generated/prisma/client.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL não definida.");

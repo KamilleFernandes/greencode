@@ -22,7 +22,7 @@ export const listarLotes = (db: Db, where: Prisma.LoteWhereInput) =>
     orderBy: [{ dataEntrada: "desc" }, { codigo: "asc" }]
   });
 export const criarLote = (db: Db, data: Prisma.LoteUncheckedCreateInput) => db.lote.create({ data });
-export async function atualizarLoteVersionado(db: Db, id: string, versao: number, data: { statusProcessamento: StatusLote }) {
+export async function atualizarLoteVersionado(db: Db, id: string, versao: number, data: { statusProcessamento: StatusLote; triagemIniciadaEm?: Date; triagemConcluidaEm?: Date; triagemIniciadaPor?: string; triagemConcluidaPor?: string }) {
   exigirAtualizacao(await db.lote.updateMany({ where: { id, versao }, data: { ...data, versao: { increment: 1 } } }), "o lote");
 }
 /** Serializa operações concorrentes sobre o mesmo lote (ex.: várias inclusões de equipamento simultâneas). */

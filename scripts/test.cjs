@@ -27,7 +27,7 @@ console.log(`Banco isolado para testes: ${dbName}`);
 console.log('1/4 - Geração do Prisma Client e build TypeScript.');
 run('npm', ['run', 'build']);
 console.log('2/4 - Reset do banco TESTE (nenhum outro banco será usado pelo script).');
-run('npx', ['prisma', 'migrate', 'reset', '--force', '--skip-seed']);
+run('npx', ['prisma', 'migrate', 'reset', '--force']);
 console.log('3/4 - Seed idempotente.');
 run('npx', ['prisma', 'db', 'seed']);
 console.log('4/4 - Testes de integração da API (' + (process.argv[2] === 'jornada' ? 'somente a jornada completa' : 'suíte completa') + ').');

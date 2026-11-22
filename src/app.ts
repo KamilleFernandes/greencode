@@ -16,6 +16,8 @@ import { registrarRotasOrganizacao } from "./controllers/organizacao.controller.
 import { registrarRotasLogistica } from "./controllers/logistica.controller.js";
 import { registrarRotasRelatorios } from "./controllers/relatorios.controller.js";
 import { registrarRotasAuditoria } from "./controllers/auditoria.controller.js";
+import { registrarRotasAnaliticas } from "./controllers/analytics.controller.js";
+import { registrarRotasApiPublica } from "./controllers/api-publica.controller.js";
 
 /** Rotas que não exigem token. Todas as demais passam pelo hook global de autenticação. */
 const ROTAS_PUBLICAS = new Set(["GET /health", "POST /auth/login"]);
@@ -42,16 +44,16 @@ export function buildApp(db: PrismaClient = prisma): FastifyInstance {
     const s = rota.schema as any;
     if (!ROTAS_PUBLICAS.has(`GET ${rota.url}`) && !ROTAS_PUBLICAS.has(`POST ${rota.url}`) && s.security === undefined) s.security = [{ bearerAuth: [] }];
     s.response ??= {};
-    for (const [codigo, descricao] of [[400, "Dados inválidos"], [401, "Não autenticado"], [403, "Papel sem permissão"], [404, "Não encontrado"], [409, "Conflito (versão, duplicidade ou estado)"], [422, "Regra de negócio / integridade"]] as const) {
+    for (const [codigo, descricao] of [[400, "Dados inválidos"], [401, "Não autenticado"], [403, "Papel sem permissão"], [404, "Não encontrado"], [409, "Conflito (versão, duplicidade ou estado)"], [422, "Regra de negócio / integridade"], [429, "Limite de requisições excedido"]] as const) {
       s.response[codigo] ??= { ...ERRO, description: descricao };
     }
   });
 
   app.register(swagger, {
     openapi: {
-      info: { title: "GreenCode API", description: "API REST de logística reversa de equipamentos eletrônicos - AV2", version: "2.0.0" },
-      tags: [{ name: "Autenticação" }, { name: "Usuários" }, { name: "Configuração" }, { name: "Organizações" }, { name: "Lotes" }, { name: "Equipamentos" }, { name: "Triagem" }, { name: "Movimentações" }, { name: "Rastreamento" }, { name: "Relatórios" }, { name: "Auditoria" }],
-      components: { securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" } } }
+      info: { title: "GreenCode API", description: "API REST de logística reversa com análises, integração pública e processamento assíncrono - AV3", version: "3.0.0" },
+      tags: [{ name: "Autenticação" }, { name: "Usuários" }, { name: "Configuração" }, { name: "Organizações" }, { name: "Lotes" }, { name: "Equipamentos" }, { name: "Triagem" }, { name: "Movimentações" }, { name: "Rastreamento" }, { name: "Relatórios" }, { name: "Auditoria" }, { name: "Análises" }, { name: "API pública" }],
+      components: { securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" }, apiKeyAuth: { type: "apiKey", in: "header", name: "X-API-Key" } } }
     }
   });
   app.register(swaggerUi, { routePrefix: "/docs", uiConfig: { persistAuthorization: true } });
@@ -74,7 +76,7 @@ export function buildApp(db: PrismaClient = prisma): FastifyInstance {
   // Hook GLOBAL: toda requisição (exceto rotas públicas e a documentação) precisa de token válido.
   app.addHook("onRequest", async (request) => {
     const url = request.routeOptions?.url;
-    if (!url || url.startsWith("/docs") || ROTAS_PUBLICAS.has(`${request.method} ${url}`)) return;
+    if (!url || url.startsWith("/docs") || url.startsWith("/api/v1/public/") || ROTAS_PUBLICAS.has(`${request.method} ${url}`)) return;
     await autenticar(request);
   });
 
@@ -92,6 +94,8 @@ export function buildApp(db: PrismaClient = prisma): FastifyInstance {
     registrarRotasLogistica(api, db);
     registrarRotasRelatorios(api, db);
     registrarRotasAuditoria(api, db);
+    registrarRotasAnaliticas(api, db);
+    registrarRotasApiPublica(api, db);
 
   });
 

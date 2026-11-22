@@ -102,11 +102,11 @@ export async function processarTriagem(db: PrismaClient, ator: Ator, ref: string
         await criarMovimentacao(tx, { equipamentoId: eq.id, origem: eq.statusRastreamento, destino: StatusRastreamento.EM_TRIAGEM, responsavel: ator.login, observacao: "Primeira etapa da triagem; código de barras gerado." });
         await registrarJournal(tx, ator, { operacao: "INICIAR_TRIAGEM_EQUIPAMENTO", entidade: "Equipamento", entidadeId: eq.id, dadosAntes: { statusRastreamento: eq.statusRastreamento, codigoBarrasInterno: eq.codigoBarrasInterno }, dadosDepois: { statusRastreamento: StatusRastreamento.EM_TRIAGEM, codigoBarrasInterno } });
       }
-      await atualizarLoteVersionado(tx, lote.id, versao, { statusProcessamento: StatusLote.EM_TRIAGEM });
+      await atualizarLoteVersionado(tx, lote.id, versao, { statusProcessamento: StatusLote.EM_TRIAGEM, triagemIniciadaEm: new Date(), triagemIniciadaPor: ator.login.slice(0, 32) });
       await registrarJournal(tx, ator, { operacao: "INICIAR_TRIAGEM", entidade: "Lote", entidadeId: lote.id, dadosAntes: { statusProcessamento: lote.statusProcessamento }, dadosDepois: { statusProcessamento: StatusLote.EM_TRIAGEM, quantidadeEquipamentos: equipamentos.length } });
     } else if (lote.statusProcessamento === StatusLote.EM_TRIAGEM) {
       if (equipamentos.length === 0 || equipamentos.some((e) => !e.codigoBarrasInterno)) throw new HttpError(400, "Triagem incompleta: todos os equipamentos precisam de código de barras.");
-      await atualizarLoteVersionado(tx, lote.id, versao, { statusProcessamento: StatusLote.TRIAGEM_CONCLUIDA });
+      await atualizarLoteVersionado(tx, lote.id, versao, { statusProcessamento: StatusLote.TRIAGEM_CONCLUIDA, triagemConcluidaEm: new Date(), triagemConcluidaPor: ator.login.slice(0, 32) });
       await registrarJournal(tx, ator, { operacao: "CONCLUIR_TRIAGEM", entidade: "Lote", entidadeId: lote.id, dadosAntes: { statusProcessamento: lote.statusProcessamento }, dadosDepois: { statusProcessamento: StatusLote.TRIAGEM_CONCLUIDA } });
     } else {
       throw new HttpError(409, `Lote ${lote.codigo} está em ${lote.statusProcessamento}; não há triagem a processar.`);

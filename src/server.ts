@@ -2,6 +2,8 @@ import "dotenv/config";
 import { buildApp } from "./app.js";
 import { prisma } from "./plugins/prisma.js";
 import { iniciarManutencaoJournal } from "./jobs/manutencao-journal.js";
+import { iniciarWorkerAnalitico } from "./jobs/worker-analitico.js";
+import { iniciarAgendamentoAnalitico } from "./jobs/agendamento-analitico.js";
 
 const app = buildApp();
 const port = Number(process.env.PORT ?? 3000);
@@ -11,6 +13,8 @@ await app.listen({ port, host: process.env.HOST ?? "0.0.0.0" });
 app.log.info(`GreenCode API ativa na porta ${port}. Swagger: http://localhost:${port}/docs`);
 
 const pararManutencao = iniciarManutencaoJournal(prisma, app.log);
+const pararWorker = iniciarWorkerAnalitico(prisma, app.log);
+const pararAgendamento = iniciarAgendamentoAnalitico(prisma, app.log);
 
 let encerrando = false;
 async function shutdown(signal: string) {
@@ -19,6 +23,8 @@ async function shutdown(signal: string) {
   app.log.info({ signal }, "Encerramento gracioso iniciado.");
   try {
     pararManutencao();
+    pararWorker();
+    pararAgendamento();
     await app.close();
     process.exitCode = 0;
   } catch (error) {

@@ -1,0 +1,3 @@
+const PERIGOSO=/^[=+\-@\t\r]/;
+export function escaparCelula(v:unknown,sep:string):string{if(v===null||v===undefined)return "";let s=v instanceof Date?v.toISOString():typeof v==="object"?JSON.stringify(v):String(v);if(typeof v==="string"&&PERIGOSO.test(s))s="'"+s;return s.includes(sep)||/["\r\n]/.test(s)?`"${s.replaceAll('"','""')}"`:s;}
+export function paraCsv(linhas:Array<Record<string,unknown>>,colunas:string[],separador:"virgula"|"ponto_virgula"="ponto_virgula"){const sep=separador==="ponto_virgula"?";":",";return "\uFEFF"+[colunas.join(sep),...linhas.map(l=>colunas.map(c=>escaparCelula(l[c],sep)).join(sep))].join("\r\n")+"\r\n";}

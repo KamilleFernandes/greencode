@@ -68,6 +68,7 @@ model Organizacao {
   versao             Int       @default(1)
   contrato           Contrato?
   lotes              Lote[]
+  chavesApi          ChaveApi[]
 
   @@index([ativo])
   @@map("organizacoes")
@@ -102,7 +103,12 @@ model Lote {
   organizacao        Organizacao    @relation(fields: [organizacaoId], references: [id], onDelete: Restrict)
   equipamentos       Equipamento[]
   criadoEm           DateTime       @default(now())
+  triagemIniciadaEm  DateTime?
+  triagemConcluidaEm DateTime?
+  triagemIniciadaPor String?        @db.VarChar(32)
+  triagemConcluidaPor String?       @db.VarChar(32)
 
+  @@index([triagemConcluidaEm])
   @@index([organizacaoId])
   @@index([statusProcessamento])
   @@index([dataEntrada])
@@ -226,4 +232,141 @@ model AuditoriaArquivada {
   @@index([timestamp])
   @@index([entidade, entidadeId])
   @@map("auditorias_arquivadas")
+}
+
+
+enum PermissaoApi {
+  RASTREABILIDADE_LEITURA
+  LOTES_LEITURA
+  LOTES_ESCRITA
+  ANALISES_LEITURA
+}
+
+enum CategoriaAnalise {
+  EFICIENCIA_OPERACIONAL
+  RENTABILIDADE
+  VIDA_UTIL
+}
+
+enum OrigemAnalise {
+  API
+  AGENDADA
+  TAREFA
+}
+
+enum NivelConfianca {
+  ALTA
+  MEDIA
+  BAIXA
+  INSUFICIENTE
+}
+
+enum TipoTarefa {
+  RELATORIO_PREDITIVO
+  ANALISE_AGENDADA
+}
+
+enum StatusTarefa {
+  PENDENTE
+  EM_EXECUCAO
+  CONCLUIDA
+  FALHA
+}
+
+model ChaveApi {
+  id                 String        @id @default(uuid()) @db.Uuid
+  prefixo            String        @unique @db.VarChar(8)
+  hashSegredo        String        @db.VarChar(64)
+  nome               String        @db.VarChar(120)
+  organizacaoId      String        @db.Uuid
+  permissoes         PermissaoApi[] @default([])
+  limiteReqPorMinuto Int           @default(60)
+  expiraEm           DateTime?
+  revogadaEm         DateTime?
+  motivoRevogacao    String?       @db.VarChar(300)
+  ultimoUsoEm        DateTime?
+  criadaPor          String        @db.VarChar(32)
+  criadaEm           DateTime      @default(now())
+  versao             Int           @default(1)
+  organizacao        Organizacao   @relation(fields: [organizacaoId], references: [id], onDelete: Restrict)
+  tarefas            TarefaAssincrona[]
+  @@index([organizacaoId])
+  @@map("chaves_api")
+}
+
+model ConfiguracaoAnalitica {
+  id                       String   @id @default("global") @db.VarChar(20)
+  fatoresEstadoFisico      Json     @default("{}")
+  valoresReferencia         Json     @default("{}")
+  amostraMinimaRegressao    Int      @default(8)
+  suavizacaoBayesiana       Int      @default(5)
+  versao                   Int      @default(1)
+  atualizadoEm             DateTime @default(now()) @updatedAt
+  @@map("configuracoes_analiticas")
+}
+
+model AnaliseExecucao {
+  id             String          @id @default(uuid()) @db.Uuid
+  categoria      CategoriaAnalise
+  origem         OrigemAnalise
+  parametros     Json            @default("{}")
+  resultado      Json
+  amostra        Int
+  versaoModelo   String          @db.VarChar(20)
+  duracaoMs      Int
+  organizacaoId  String?         @db.Uuid
+  geradoPor      String          @db.VarChar(32)
+  geradoEm       DateTime        @default(now())
+  previsoes      PrevisaoVidaUtil[]
+  @@index([categoria, geradoEm])
+  @@index([organizacaoId])
+  @@map("analise_execucoes")
+}
+
+model PrevisaoVidaUtil {
+  id                        String          @id @default(uuid()) @db.Uuid
+  execucaoId                String          @db.Uuid
+  tipo                      TipoEquipamento
+  anoReferencia             Int
+  amostra                   Int
+  intercepto                Decimal?        @db.Decimal(14, 6)
+  inclinacao                Decimal?        @db.Decimal(14, 6)
+  r2                        Decimal?        @db.Decimal(8, 6)
+  erroResidual              Decimal?        @db.Decimal(14, 6)
+  idadeInservivelProjetada  Decimal?        @db.Decimal(8, 3)
+  vidaUtilContabilAnos      Decimal?        @db.Decimal(8, 3)
+  confianca                 NivelConfianca
+  motivo                    String?         @db.VarChar(200)
+  geradoEm                  DateTime        @default(now())
+  execucao                  AnaliseExecucao @relation(fields: [execucaoId], references: [id], onDelete: Restrict)
+  @@unique([execucaoId, tipo])
+  @@index([tipo, geradoEm])
+  @@map("previsoes_vida_util")
+}
+
+model TarefaAssincrona {
+  id                 String       @id @default(uuid()) @db.Uuid
+  tipo               TipoTarefa
+  status             StatusTarefa @default(PENDENTE)
+  parametros         Json         @default("{}")
+  resultado          Json?
+  chaveDedupe        String?      @unique @db.VarChar(120)
+  organizacaoId      String?      @db.Uuid
+  chaveApiId         String?      @db.Uuid
+  solicitadaPor      String       @db.VarChar(32)
+  tentativas         Int          @default(0)
+  maxTentativas      Int          @default(3)
+  proximaTentativaEm DateTime     @default(now())
+  bloqueadaAte       DateTime?
+  trabalhador        String?      @db.VarChar(64)
+  ultimoErro         String?      @db.VarChar(1000)
+  criadaEm           DateTime     @default(now())
+  iniciadaEm         DateTime?
+  concluidaEm        DateTime?
+  versao             Int          @default(1)
+  chaveApi           ChaveApi?    @relation(fields: [chaveApiId], references: [id], onDelete: Restrict)
+  @@index([status, proximaTentativaEm])
+  @@index([organizacaoId, criadaEm])
+  @@index([chaveApiId])
+  @@map("tarefas_assincronas")
 }

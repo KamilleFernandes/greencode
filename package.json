@@ -1,8 +1,8 @@
 {
   "name": "greencode-av2-api",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "GreenCode - API REST para logística reversa, AV2",
+  "description": "GreenCode - API REST de logística reversa com camada analítica, API pública e tarefas assíncronas (AV3)",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -16,12 +16,14 @@
     "migrate:deploy": "prisma migrate deploy",
     "seed": "tsx prisma/seed.ts",
     "studio": "prisma studio",
-    "test": "node scripts/test.cjs",
+    "test": "node --env-file=.env scripts/test.cjs",
     "test:unit": "npm run generate && tsx --test tests/unit.test.ts",
     "predev": "npm run seed",
     "validate": "prisma validate",
     "auditoria:manutencao": "tsx src/jobs/executar-manutencao.ts",
-    "test:jornada": "node scripts/test.cjs jornada"
+    "test:jornada": "node scripts/test.cjs jornada",
+    "test:analytics": "npm run generate && tsx --test tests/analytics-unit.test.mjs",
+    "test:all": "npm test && npm run test:analytics"
   },
   "dependencies": {
     "@fastify/jwt": "^9.1.0",

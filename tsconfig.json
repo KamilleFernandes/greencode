@@ -4,7 +4,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "rootDir": "src",
-    "outDir": "out",
+    "outDir": "../../../greencode/out",
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -18,8 +18,8 @@
   "exclude": [
     "legacy-cli",
     "node_modules",
-    "out",
+    "../../../greencode/out",
     "tests",
-    "prisma"
+    "../../../greencode/prisma"
   ]
 }
